@@ -1,18 +1,6 @@
 #!/bin/sh
 # helper scripts
 
-APP_BUNDLEID=io.rokt.rntester1
-
-IOS_TEAM_ID=YKXG58E5J6
-IOS_PROV_PROFILE_NAME="manual AppStore io.rokt.rntester1"
-IOS_KEYCHAIN_NAME=ios_temp_keychain
-IOS_TMP_FOLDER=.ios_secrets
-
-ANDROID_KEY_FILE=android-key.jks
-ANDROID_KEY_INFO="CN=Test Application, OU=IT, O=Your Company Name, L=Sydney, S=New South Wales, C=AU"
-ANDROID_ALIAS_NAME=upload
-
-
 app_init() {
   flutter create --org com.example mobileapp
 }
@@ -207,6 +195,7 @@ ios_key_create() {
 }
 
 # read environment from a file
+if [ -f ./env.settings ]; then . ./env.settings; fi
 if [ -f ./.env ]; then . ./.env; fi
 
 # IOS management scripts
