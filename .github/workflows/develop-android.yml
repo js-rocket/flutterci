@@ -58,9 +58,10 @@ jobs:
           ./flutter/bin/flutter pub get
       ## End Flutter Setup
       # Build Android APK file
-      - run: ./run android-set-key
+      - run: ./run android-key-add
       - run: flutter build apk
       - run: flutter build appbundle
+      - run: ./run android-key-remove
       # Save result to github artifacts
       - uses: actions/upload-artifact@v2
         with:
