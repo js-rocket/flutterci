@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="io.rokt.rntester1">
    <application
-        android:label="rntester1"
+        android:label="RN Tester1"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
