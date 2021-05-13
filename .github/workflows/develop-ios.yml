@@ -1,0 +1,66 @@
+name: Build Mobile App IOS
+
+on:
+  push:
+    branches:
+      - develop-ios
+
+# Common environment variables
+env:
+  CI: true
+  IOS_CERT_P12_PASSWORD: ${{ secrets.IOS_CERT_P12_PASSWORD }}
+  IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      ## Start Flutter Setup
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '12.x'
+      - uses: actions/setup-java@v1
+        with:
+          java-version: '12.x'
+      - uses: actions/cache@v2
+        with:
+          path: './flutter'
+          key: ${{ runner.os }}-${{ github.repository }}-${{ github.sha }}
+      - run: |
+          if [ ! -d ./flutter/bin ]; then git clone https://github.com/flutter/flutter.git --depth 1; fi
+          echo "$GITHUB_WORKSPACE/flutter/bin" >> $GITHUB_PATH
+          ./flutter/bin/flutter pub get
+      ## End Flutter Setup
+      - run: flutter format --set-exit-if-changed lib test
+      - run: flutter test
+
+  build:
+    needs: test
+    runs-on: macos-latest
+    steps:
+      ## Start Flutter Setup
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '12.x'
+      - uses: actions/setup-java@v1
+        with:
+          java-version: '12.x'
+      - uses: actions/cache@v2
+        with:
+          path: './flutter'
+          key: ${{ runner.os }}-${{ github.repository }}-${{ github.sha }}
+      - run: |
+          if [ ! -d ./flutter/bin ]; then git clone https://github.com/flutter/flutter.git --depth 1; fi
+          echo "$GITHUB_WORKSPACE/flutter/bin" >> $GITHUB_PATH
+          ./flutter/bin/flutter pub get
+      ## End Flutter Setup
+      # Build and sign IPA file
+      - run: ./run ios-key-add
+      - run: ./run ios-build
+      # Save result to github artifacts
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ios-ipa
+          path: build/ios/ipa

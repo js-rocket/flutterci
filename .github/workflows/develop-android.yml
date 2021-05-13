@@ -1,0 +1,70 @@
+name: Build Mobile App Android
+
+on:
+  push:
+    branches:
+      - develop-android
+
+# Common environment variables
+env:
+  CI: true
+  ANDROID_ALIAS_PASSWORD: ${{ secrets.ANDROID_ALIAS_PASSWORD }}
+  ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      ## Start Flutter Setup
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '12.x'
+      - uses: actions/setup-java@v1
+        with:
+          java-version: '12.x'
+      - uses: actions/cache@v2
+        with:
+          path: './flutter'
+          key: ${{ runner.os }}-${{ github.repository }}-${{ github.sha }}
+      - run: |
+          if [ ! -d ./flutter/bin ]; then git clone https://github.com/flutter/flutter.git --depth 1; fi
+          echo "$GITHUB_WORKSPACE/flutter/bin" >> $GITHUB_PATH
+          ./flutter/bin/flutter pub get
+      ## End Flutter Setup
+      - run: flutter format --set-exit-if-changed lib test
+      - run: flutter test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      ## Start Flutter Setup
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '12.x'
+      - uses: actions/setup-java@v1
+        with:
+          java-version: '12.x'
+      - uses: actions/cache@v2
+        with:
+          path: './flutter'
+          key: ${{ runner.os }}-${{ github.repository }}-${{ github.sha }}
+      - run: |
+          if [ ! -d ./flutter/bin ]; then git clone https://github.com/flutter/flutter.git --depth 1; fi
+          echo "$GITHUB_WORKSPACE/flutter/bin" >> $GITHUB_PATH
+          ./flutter/bin/flutter pub get
+      ## End Flutter Setup
+      # Build Android APK file
+      - run: ./run android-set-key
+      - run: flutter build apk
+      - run: flutter build appbundle
+      # Save result to github artifacts
+      - uses: actions/upload-artifact@v2
+        with:
+          name: android-result
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
