@@ -106,27 +106,6 @@ android_key_remove() {
 
 
 ios_build_ipa() {
-  # flutter build ios --release --no-codesign
-  dontecho="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version="1.0">
-<dict>
-    <key>compileBitcode</key>
-    <true/>
-    <key>destination</key>
-    <string>export</string>
-    <key>method</key>
-    <string>app-store</string>
-    <key>signingStyle</key>
-    <string>automatic</string>
-    <key>stripSwiftSymbols</key>
-    <true/>
-    <key>teamID</key>
-    <string>$IOS_TEAM_ID</string>
-    <key>thinning</key>
-    <string>&lt;none&gt;</string>
-</dict>
-</plist>"
 
 echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
@@ -167,7 +146,7 @@ ios_get_secrets() {
   cp $IOS_TMP_FOLDER/*.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles
 
   # DEBUG-TMP show folder contents
-  ls -al $IOS_TMP_FOLDER
+  # ls -al $IOS_TMP_FOLDER
 }
 
 ios_key_add() {

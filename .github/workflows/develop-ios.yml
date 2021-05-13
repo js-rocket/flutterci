@@ -59,6 +59,7 @@ jobs:
       # Build and sign IPA file
       - run: ./run ios-key-add
       - run: ./run ios-build
+      - run: ./run ios-key-remove
       # Save result to github artifacts
       - uses: actions/upload-artifact@v2
         with:
