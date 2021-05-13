@@ -1,0 +1,255 @@
+#!/bin/sh
+# helper scripts
+
+APP_BUNDLEID=io.rokt.rntester1
+
+IOS_TEAM_ID=YKXG58E5J6
+IOS_PROV_PROFILE_NAME="manual AppStore io.rokt.rntester1"
+IOS_KEYCHAIN_NAME=ios_temp_keychain
+IOS_TMP_FOLDER=.ios_secrets
+
+ANDROID_KEY_FILE=android-key.jks
+ANDROID_KEY_INFO="CN=Test Application, OU=IT, O=Your Company Name, L=Sydney, S=New South Wales, C=AU"
+ANDROID_ALIAS_NAME=upload
+
+
+app_init() {
+  flutter create --org com.example mobileapp
+}
+
+app_update_name() {
+  # This utility is only used briefly so simply add to project then remove after use
+  # Note config must exist in pubspec.yaml
+  flutter pub add flutter_launcher_name
+  sleep 2
+  flutter pub run flutter_launcher_name:main
+  sleep 1
+  flutter pub remove flutter_launcher_name
+}
+
+app_update_icon() {
+  # This utility is only used briefly so simply add to project then remove after use
+  # Note config must exist in pubspec.yaml
+  flutter pub add flutter_launcher_icons
+  sleep 2
+  flutter pub run flutter_launcher_icons:main
+  sleep 1
+  flutter pub remove flutter_launcher_icons
+}
+
+app_update_splash_screen() {
+  flutter pub run flutter_native_splash:create
+}
+
+app_hook_link() {
+  echo "Relinking hooks ..."
+  rm .git/hooks/pre-commit
+  ln -s ../../hooks/pre-commit .git/hooks/pre-commit
+  echo "Done"
+}
+
+android_key_create() {
+  if [ "$ANDROID_KEY_FILE" = "" ]; then echo "ANDROID_KEY_FILE can not be blank"; exit; fi
+  if [ "$ANDROID_ALIAS_NAME" = "" ]; then echo "ANDROID_ALIAS_NAME can not be blank"; exit; fi
+  if [ "$ANDROID_KEY_INFO" = "" ]; then echo "ANDROID_KEY_INFO can not be blank"; exit; fi
+  if [ "$ANDROID_KEY_FILE" = "" ]; then echo "ANDROID_KEY_FILE can not be blank"; exit; fi
+  if [ "$ANDROID_KEYSTORE_PASSWORD" = "" ]; then echo "ANDROID_KEYSTORE_PASSWORD can not be blank"; exit; fi
+  if [ "$ANDROID_ALIAS_PASSWORD" = "" ]; then echo "ANDROID_ALIAS_PASSWORD can not be blank"; exit; fi
+
+  keytool -genkey -v -keystore $ANDROID_KEY_FILE \
+    -alias $ANDROID_ALIAS_NAME \
+    -keyalg RSA -keysize 2048 -validity 10000 \
+    -dname "$ANDROID_KEY_INFO" \
+    -storepass $ANDROID_KEYSTORE_PASSWORD -keypass $ANDROID_ALIAS_PASSWORD
+}
+
+android_key_test() {
+  # read keystore file and password from environment file
+  keytool -v -list -keystore $ANDROID_KEY_FILE -storepass $ANDROID_KEYSTORE_PASSWORD -alias $ANDROID_ALIAS_NAME -keypass $ANDROID_ALIAS_PASSWORD | grep 'Valid from'
+  if [ $? == 0 ]; then echo "SUCCESS: Key and password match"; else echo "FAIL: Key test failed"; fi
+}
+
+android_key_add() {
+echo "## Update the android/app/build.gradle file. Replace the buildTypes block inside the android block with:
+   signingConfigs {
+        release {
+            Properties keyProperties = new Properties()
+            keyProperties.load(project.rootProject.file('key.properties').newDataInputStream())
+            storeFile keyProperties['storeFile'] ? file(keyProperties['storeFile']) : null
+            keyAlias keyProperties.getProperty('keyAlias')
+            storePassword keyProperties.getProperty('storePassword')
+            keyPassword keyProperties.getProperty('keyPassword')
+        }
+   }
+   buildTypes {
+       release {
+           signingConfig signingConfigs.release
+       }
+   }
+"
+
+  echo "storePassword=$ANDROID_KEYSTORE_PASSWORD
+keyPassword=$ANDROID_ALIAS_PASSWORD
+keyAlias=$ANDROID_ALIAS_NAME
+storeFile=$PWD/$ANDROID_KEY_FILE
+" > $PWD/android/key.properties
+
+  FULL_KEYFILE_PATH=$PWD/$ANDROID_KEY_FILE
+  echo $FULL_KEYFILE_PATH
+  echo $ANDROID_KEYSTORE_BASE64 | base64 --decode > $FULL_KEYFILE_PATH
+}
+
+android_key_remove() {
+  FULL_KEYFILE_PATH=$PWD/$ANDROID_KEY_FILE
+  rm -f $FULL_KEYFILE_PATH
+}
+
+
+ios_build_ipa() {
+  # flutter build ios --release --no-codesign
+  dontecho="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version="1.0">
+<dict>
+    <key>compileBitcode</key>
+    <true/>
+    <key>destination</key>
+    <string>export</string>
+    <key>method</key>
+    <string>app-store</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>teamID</key>
+    <string>$IOS_TEAM_ID</string>
+    <key>thinning</key>
+    <string>&lt;none&gt;</string>
+</dict>
+</plist>"
+
+echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+        <key>destination</key>
+        <string>export</string>
+        <key>method</key>
+        <string>app-store</string>
+        <key>provisioningProfiles</key>
+        <dict>
+                <key>$APP_BUNDLEID</key>
+                <string>$IOS_PROV_PROFILE_NAME</string>
+        </dict>
+        <key>signingCertificate</key>
+        <string>Apple Distribution</string>
+        <key>signingStyle</key>
+        <string>manual</string>
+        <key>stripSwiftSymbols</key>
+        <true/>
+        <key>teamID</key>
+        <string>$IOS_TEAM_ID</string>
+        <key>uploadSymbols</key>
+        <true/>
+</dict>
+</plist>" > $IOS_TMP_FOLDER/export_options.plist
+  flutter build ipa --release --export-options-plist=$IOS_TMP_FOLDER/export_options.plist
+}
+
+ios_get_secrets() {
+  echo "Getting signing certificate and provisioning profile"
+  echo "$IOS_KEYCHAIN_PASSWORD" | gpg --batch --yes --passphrase-fd 0 ios_secrets.tgz.gpg
+  tar -zxvf ios_secrets.tgz --no-same-owner
+  rm ios_secrets.tgz
+
+  # Move provisioning profile to the right location
+  mkdir -pv ~/Library/MobileDevice/Provisioning\ Profiles
+  cp $IOS_TMP_FOLDER/*.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles
+
+  # DEBUG-TMP show folder contents
+  ls -al $IOS_TMP_FOLDER
+}
+
+ios_key_add() {
+  echo "Adding signing certificate and provisioning profile"
+
+  ios_get_secrets
+
+  # output build/ios/iphoneos/Runner.app
+  # To list all identities: security find-identity -v -p codesigning
+  # security list-keychains
+  KEYCHAIN_FULLNAME="${IOS_KEYCHAIN_NAME}-db"
+
+  # create and append keychain to the search list
+  security create-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_FULLNAME"
+  security list-keychains -d user -s "$KEYCHAIN_FULLNAME" $(security list-keychains -d user | sed s/\"//g)
+  # Unlock the keychain
+  security set-keychain-settings -t 3600 -l "$KEYCHAIN_FULLNAME"
+  security unlock-keychain -p "$IOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_FULLNAME"
+  
+  # Import certificate
+  # echo $IOS_CERT_P12_BASE64 | base64 --decode > $IOS_TMP_FOLDER/ios_cert.p12
+  security import $IOS_TMP_FOLDER/ios_cert_distribution.p12 -k "$KEYCHAIN_FULLNAME" -P "$IOS_CERT_P12_PASSWORD" -T "/usr/bin/codesign"
+  security import $IOS_TMP_FOLDER/ios_cert_development.p12 -k "$KEYCHAIN_FULLNAME" -P "$IOS_CERT_P12_PASSWORD" -T "/usr/bin/codesign"
+
+  # Check certificate was imported
+  security find-identity -v -p codesigning "$KEYCHAIN_FULLNAME"
+
+  # Detect the iOS identity
+  IOS_IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_FULLNAME" | head -1 | grep '"' | sed -e 's/[^"]*"//' -e 's/".*//')
+  IOS_UUID=$(security find-identity -v -p codesigning "$KEYCHAIN_FULLNAME" | head -1 | grep '"' | awk '{print $2}')
+
+  # New requirement for MacOS 10.12
+  security set-key-partition-list -S apple-tool:,apple: -s -k $IOS_KEYCHAIN_PASSWORD $KEYCHAIN_FULLNAME
+
+  # Show signing keys
+  security find-identity -v -p codesigning
+
+  echo "$IOS_IDENTITY  $IOS_UUID"
+
+  # SIGN APP
+  # codesign -v -s "Apple Distribution: Rocket Lab Pty Ltd (YKXG58E5J6)" ./build/ios/iphoneos/Runner.app
+}
+
+ios_key_remove() {
+  KEYCHAIN_FULLNAME="${IOS_KEYCHAIN_NAME}-db"
+  security delete-keychain "$KEYCHAIN_FULLNAME"
+  security find-identity -v -p codesigning
+}
+
+ios_key_create() {
+  rm .ios_secrets/.DS_Store
+  tar -zcvf ios_secrets.tgz $IOS_TMP_FOLDER
+  echo "$IOS_KEYCHAIN_PASSWORD" | gpg --batch --yes --passphrase-fd 0 -c ios_secrets.tgz
+  rm ios_secrets.tgz
+}
+
+# read environment from a file
+if [ -f ./.env ]; then . ./.env; fi
+
+# IOS management scripts
+if [ "$1" = "ios-build" ]; then ios_build_ipa; exit; fi
+if [ "$1" = "ios-key-add" ]; then ios_key_add; exit; fi
+if [ "$1" = "ios-key-remove" ]; then ios_key_remove; exit; fi
+if [ "$1" = "ios-key-check" ]; then codesign -dvvv $2; exit; fi
+if [ "$1" = "ios-key-test" ]; then ios_get_secrets; exit; fi
+if [ "$1" = "ios-key-create" ]; then ios_key_create; exit; fi
+
+
+# Android management scripts
+if [ "$1" = "android-key-create" ]; then android_key_create; exit; fi
+if [ "$1" = "android-key-test" ]; then android_key_test; exit; fi
+if [ "$1" = "android-key-add" ]; then android_key_add; exit; fi
+if [ "$1" = "android-key-remove" ]; then android_key_remove; exit; fi
+if [ "$1" = "android-key-check" ]; then jarsigner -verify -verbose -certs $2; exit; fi
+
+if [ "$1" = "deploy-ios" ]; then git checkout develop-ios; git merge develop; git push; git checkout develop; exit; fi
+if [ "$1" = "deploy-android" ]; then git checkout develop-android; git merge develop; git push; git checkout develop; exit; fi
+
+# App management scripts
+if [ "$1" = "init" ]; then app_init; exit; fi
+if [ "$1" = "relink-githook" ]; then app_hook_link; exit; fi
+if [ "$1" = "update-icon" ]; then app_update_icon; exit; fi
+if [ "$1" = "update-name" ]; then app_update_name; exit; fi
+
+echo "Command not found"

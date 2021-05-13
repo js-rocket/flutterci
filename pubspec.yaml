@@ -74,3 +74,17 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+
+
+# >>> Package configuration
+
+flutter_launcher_name:
+  name: "RN Tester1"
+
+flutter_icons:
+  image_path_ios: "assets/icons/icon_ios.png" 
+  image_path_android: "assets/icons/icon_android.png"
+  # adaptive_icon_foreground: "assets/icons/icon_android_adaptive.png"
+  # adaptive_icon_background: "#01082157"
+  android: true
+  ios: true
