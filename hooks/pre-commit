@@ -1,0 +1,15 @@
+#!/bin/sh
+
+echo "## Checking code formatting"
+flutter format --set-exit-if-changed lib test
+if [ $? -ne 0 ]; then exit $?; fi
+
+echo "## Checking code validity"
+flutter analyze
+if [ $? -ne 0 ]; then exit $?; fi
+
+echo "## Running tests"
+flutter test
+if [ $? -ne 0 ]; then exit $?; fi
+
+echo "## All checks passed"
