@@ -74,11 +74,14 @@ echo "## Update the android/app/build.gradle file. Replace the buildTypes block 
    signingConfigs {
         release {
             Properties keyProperties = new Properties()
-            keyProperties.load(project.rootProject.file('key.properties').newDataInputStream())
-            storeFile keyProperties['storeFile'] ? file(keyProperties['storeFile']) : null
-            keyAlias keyProperties.getProperty('keyAlias')
-            storePassword keyProperties.getProperty('storePassword')
-            keyPassword keyProperties.getProperty('keyPassword')
+            def keystorePropertiesFile = rootProject.file('key.properties')
+            if (keystorePropertiesFile.exists()) {
+                keyProperties.load(keystorePropertiesFile.newDataInputStream())
+                keyAlias keyProperties.getProperty('keyAlias')
+                keyPassword keyProperties.getProperty('keyPassword')
+                storeFile keyProperties['storeFile'] ? file(keyProperties['storeFile']) : null
+                storePassword keyProperties.getProperty('storePassword')
+            }
         }
    }
    buildTypes {
